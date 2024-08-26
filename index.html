@@ -4,331 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Configurateur de Salle de Bain 3D</title>
-    <style>
-        body { 
-            margin: 0; 
-            font-family: Arial, sans-serif;
-            overflow: hidden;
-        }
-        canvas { 
-            display: block; 
-        }
-        #controls {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(255, 255, 255, 0.8);
-            padding: 15px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        button, input {
-            margin: 5px;
-            padding: 8px 12px;
-            background-color: #3498db;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        button:hover {
-            background-color: #2980b9;
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div id="controls">
-        <input type="file" id="textureInput" multiple accept="image/*">
-        <input type="file" id="sinkModelInput" accept=".gltf,.glb" data-type="sink">
-        <input type="file" id="mirrorModelInput" accept=".gltf,.glb" data-type="mirror">
-        <button id="changeWall1">Changer Mur 1</button>
-        <button id="changeWall2">Changer Mur 2</button>
-        <button id="changeFloor">Changer Sol</button>
-        <button id="addSink">Ajouter Lavabo</button>
-        <button id="addMirror">Ajouter Miroir</button>
-        <button id="removeObject">Supprimer Objet</button>
+    <div id="controls" class="controls">
+        <div class="file-inputs">
+            <input type="file" id="textureInput" multiple accept="image/*" class="file-input">
+            <label for="textureInput" class="file-label">Charger Texture</label>
+            
+            <input type="file" id="sinkModelInput" accept=".gltf,.glb" data-type="sink" class="file-input">
+            <label for="sinkModelInput" class="file-label">Charger Lavabo 3D</label>
+            
+            <input type="file" id="mirrorModelInput" accept=".gltf,.glb" data-type="mirror" class="file-input">
+            <label for="mirrorModelInput" class="file-label">Charger Miroir 3D</label>
+        </div>
+        <div class="action-buttons">
+            <button id="changeWall1" class="btn">Changer Mur 1</button>
+            <button id="changeWall2" class="btn">Changer Mur 2</button>
+            <button id="changeFloor" class="btn">Changer Sol</button>
+            <button id="addSink" class="btn">Ajouter Lavabo</button>
+            <button id="addMirror" class="btn">Ajouter Miroir</button>
+            <button id="removeObject" class="btn">Supprimer Objet</button>
+            <button id="printScene" class="btn">Imprimer la Scène</button>
+        </div>
     </div>
+
+    <canvas id="scene"></canvas>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script>
-        let scene, camera, renderer, controls, transformControls;
-        let walls = [], floor;
-        let objects = [];
-        let selectedObject = null;
-        let raycaster = new THREE.Raycaster();
-        let mouse = new THREE.Vector2();
-        let loadedTextures = {};
-        let gltfLoader = new THREE.GLTFLoader();
-        let sinkModel = null;
-        let mirrorModel = null;
-
-        function init() {
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            document.body.appendChild(renderer.domElement);
-
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.dampingFactor = 0.25;
-            controls.screenSpacePanning = false;
-            controls.minDistance = 1;
-            controls.maxDistance = 10;
-            controls.maxPolarAngle = Math.PI;
-
-            transformControls = new THREE.TransformControls(camera, renderer.domElement);
-            scene.add(transformControls);
-
-            transformControls.addEventListener('dragging-changed', function(event) {
-                controls.enabled = !event.value;
-            });
-
-            createWalls();
-            createFloor();
-
-            camera.position.set(0, 1.5, 5);
-            camera.lookAt(0, 1, 0);
-
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-            scene.add(ambientLight);
-
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-            directionalLight.position.set(5, 5, 5);
-            scene.add(directionalLight);
-
-            const axesHelper = new THREE.AxesHelper(5);
-            scene.add(axesHelper);
-
-            window.addEventListener('keydown', function(event) {
-                if (event.key === 'Delete' && selectedObject) {
-                    removeObject();
-                }
-            });
-
-            window.addEventListener('click', onMouseClick, false);
-            window.addEventListener('dblclick', onMouseDoubleClick, false);
-            window.addEventListener('resize', onWindowResize, false);
-
-            animate();
-        }
-
-        function createWalls() {
-            const wallGeometry = new THREE.PlaneGeometry(5, 3);
-            
-            for (let i = 0; i < 2; i++) {
-                const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x888888 });
-                walls[i] = new THREE.Mesh(wallGeometry, wallMaterial);
-                
-                if (i === 0) {
-                    walls[i].position.set(0, 1.5, -2.5);
-                } else {
-                    walls[i].position.set(-2.5, 1.5, 0);
-                    walls[i].rotation.y = Math.PI / 2;
-                }
-                
-                scene.add(walls[i]);
-            }
-        }
-
-        function createFloor() {
-            const floorGeometry = new THREE.PlaneGeometry(5, 5);
-            const floorMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc });
-            floor = new THREE.Mesh(floorGeometry, floorMaterial);
-            floor.rotation.x = -Math.PI / 2;
-            scene.add(floor);
-        }
-
-        function handleTextureFiles(event) {
-            const files = event.target.files;
-            const reader = new FileReader();
-
-            reader.onload = function(e) {
-                const texture = new THREE.TextureLoader().load(e.target.result, function(tex) {
-                    loadedTextures['userTexture'] = tex;
-                    console.log('Texture chargée avec succès');
-                }, undefined, function(error) {
-                    console.error('Erreur lors du chargement de la texture :', error);
-                });
-            };
-
-            for (let i = 0; i < files.length; i++) {
-                reader.readAsDataURL(files[i]);
-            }
-        }
-
-        function handleModelFile(event) {
-            const file = event.target.files[0];
-            const type = event.target.dataset.type; // 'sink' ou 'mirror'
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const arrayBuffer = e.target.result;
-                    gltfLoader.parse(arrayBuffer, '', function(gltf) {
-                        const model = gltf.scene;
-                        
-                        // Réinitialiser la rotation et l'échelle
-                        model.rotation.set(0, 0, 0);
-                        model.scale.set(1, 1, 1);
-
-                        // Centrer et ajuster l'échelle du modèle
-                        centerModel(model);
-
-                        if (type === 'sink') {
-                            sinkModel = model;
-                        } else if (type === 'mirror') {
-                            mirrorModel = model;
-                        }
-
-                        console.log(`Modèle ${type} chargé avec succès`);
-                    }, function(error) {
-                        console.error('Erreur lors du chargement du modèle:', error);
-                    });
-                };
-                reader.readAsArrayBuffer(file);
-            }
-        }
-
-        function centerModel(model) {
-            const box = new THREE.Box3().setFromObject(model);
-            const center = box.getCenter(new THREE.Vector3());
-            const size = box.getSize(new THREE.Vector3());
-
-            const maxDim = Math.max(size.x, size.y, size.z);
-            const scale = 1.25 / maxDim;
-            model.scale.multiplyScalar(scale);
-
-            model.position.sub(center.multiplyScalar(scale));
-            model.position.y = size.y * scale / 2;
-            model.position.z = -2.4;
-        }
-
-        function applyTextureToObject(object, texture) {
-            if (texture) {
-                texture.wrapS = THREE.RepeatWrapping;
-                texture.wrapT = THREE.RepeatWrapping;
-                texture.repeat.set(object === floor ? 3 : 2, object === floor ? 3 : 2);
-
-                object.material.map = texture;
-                object.material.needsUpdate = true;
-            } else {
-                console.error('La texture est indéfinie. Assurez-vous qu\'elle est correctement chargée.');
-            }
-        }
-
-        function addObject(type) {
-            if (type === 'sink' && sinkModel) {
-                const newSink = sinkModel.clone();
-                scene.add(newSink);
-                objects.push(newSink);
-                selectObject(newSink);
-            } else if (type === 'mirror' && mirrorModel) {
-                const newMirror = mirrorModel.clone();
-                scene.add(newMirror);
-                objects.push(newMirror);
-                selectObject(newMirror);
-            } else {
-                console.error(`Modèle ${type} non chargé. Veuillez d'abord importer un modèle.`);
-            }
-        }
-
-        function selectObject(object) {
-            if (selectedObject) {
-                transformControls.detach(selectedObject);
-            }
-            selectedObject = object;
-            transformControls.attach(object);
-        }
-
-        function removeObject() {
-            if (selectedObject) {
-                scene.remove(selectedObject);
-                objects = objects.filter(obj => obj !== selectedObject);
-                transformControls.detach();
-                selectedObject = null;
-            }
-        }
-
-        function toggleObjectLock(object) {
-            if (object.userData.locked) {
-                object.userData.locked = false;
-                transformControls.attach(object);
-            } else {
-                object.userData.locked = true;
-                transformControls.detach();
-            }
-        }
-
-        function onMouseClick(event) {
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(objects);
-
-            if (intersects.length > 0) {
-                selectObject(intersects[0].object);
-            }
-        }
-
-        function onMouseDoubleClick(event) {
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(objects);
-
-            if (intersects.length > 0) {
-                toggleObjectLock(intersects[0].object);
-            }
-        }
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update();
-            renderer.render(scene, camera);
-        }
-
-        function checkModelLoaded(type) {
-            if ((type === 'sink' && !sinkModel) || (type === 'mirror' && !mirrorModel)) {
-                alert(`Veuillez d'abord charger un modèle ${type} 3D.`);
-                return false;
-            }
-            return true;
-        }
-
-        document.getElementById('textureInput').addEventListener('change', handleTextureFiles, false);
-        document.getElementById('sinkModelInput').addEventListener('change', handleModelFile, false);
-        document.getElementById('mirrorModelInput').addEventListener('change', handleModelFile, false);
-        document.getElementById('changeWall1').addEventListener('click', () => {
-            applyTextureToObject(walls[0], loadedTextures['userTexture']);
-        });
-        document.getElementById('changeWall2').addEventListener('click', () => {
-            applyTextureToObject(walls[1], loadedTextures['userTexture']);
-        });
-        document.getElementById('changeFloor').addEventListener('click', () => {
-            applyTextureToObject(floor, loadedTextures['userTexture']);
-        });
-        document.getElementById('addSink').addEventListener('click', () => {
-            if (checkModelLoaded('sink')) addObject('sink');
-        });
-        document.getElementById('addMirror').addEventListener('click', () => {
-            if (checkModelLoaded('mirror')) addObject('mirror');
-        });
-        document.getElementById('removeObject').addEventListener('click', removeObject);
-
-        init();
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
