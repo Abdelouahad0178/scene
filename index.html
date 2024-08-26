@@ -7,29 +7,29 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <canvas id="scene"></canvas>
+    
     <div id="controls" class="controls">
         <div class="file-inputs">
             <input type="file" id="textureInput" multiple accept="image/*" class="file-input">
-            <label for="textureInput" class="file-label">Charger Texture</label>
+            <label for="textureInput" class="file-label">Texture</label>
             
             <input type="file" id="sinkModelInput" accept=".gltf,.glb" data-type="sink" class="file-input">
-            <label for="sinkModelInput" class="file-label">Charger Lavabo 3D</label>
+            <label for="sinkModelInput" class="file-label">Lavabo</label>
             
             <input type="file" id="mirrorModelInput" accept=".gltf,.glb" data-type="mirror" class="file-input">
-            <label for="mirrorModelInput" class="file-label">Charger Miroir 3D</label>
+            <label for="mirrorModelInput" class="file-label">Miroir</label>
         </div>
         <div class="action-buttons">
-            <button id="changeWall1" class="btn">Changer Mur 1</button>
-            <button id="changeWall2" class="btn">Changer Mur 2</button>
-            <button id="changeFloor" class="btn">Changer Sol</button>
-            <button id="addSink" class="btn">Ajouter Lavabo</button>
-            <button id="addMirror" class="btn">Ajouter Miroir</button>
-            <button id="removeObject" class="btn">Supprimer Objet</button>
-            <button id="printScene" class="btn">Imprimer la Scène</button>
+            <button id="changeWall1" class="btn">Mur 1</button>
+            <button id="changeWall2" class="btn">Mur 2</button>
+            <button id="changeFloor" class="btn">Sol</button>
+            <button id="addSink" class="btn">+ Lavabo</button>
+            <button id="addMirror" class="btn">+ Miroir</button>
+            <button id="removeObject" class="btn">Supprimer</button>
+            <button id="printScene" class="btn">Imprimer</button>
         </div>
     </div>
-
-    <canvas id="scene"></canvas>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
