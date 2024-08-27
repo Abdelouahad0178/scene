@@ -6,6 +6,8 @@ let raycaster = new THREE.Raycaster();
 let mouse = new THREE.Vector2();
 let loadedTextures = {};
 let gltfLoader = new THREE.GLTFLoader();
+let objLoader = new THREE.OBJLoader();
+let fbxLoader = new THREE.FBXLoader();
 let sinkModel = null;
 let mirrorModel = null;
 
@@ -111,27 +113,38 @@ function handleModelFile(event) {
         const reader = new FileReader();
         reader.onload = function(e) {
             const arrayBuffer = e.target.result;
-            gltfLoader.parse(arrayBuffer, '', function(gltf) {
-                const model = gltf.scene;
-                
-                model.rotation.set(0, 0, 0);
-                model.scale.set(1, 1, 1);
-
-                centerModel(model);
-
-                if (type === 'sink') {
-                    sinkModel = model;
-                } else if (type === 'mirror') {
-                    mirrorModel = model;
-                }
-
-                console.log(`Modèle ${type} chargé avec succès`);
-            }, function(error) {
-                console.error('Erreur lors du chargement du modèle:', error);
-            });
+            const extension = file.name.split('.').pop().toLowerCase();
+            
+            if (extension === 'gltf' || extension === 'glb') {
+                gltfLoader.parse(arrayBuffer, '', function(gltf) {
+                    handleModelLoad(gltf.scene, type);
+                });
+            } else if (extension === 'obj') {
+                const text = new TextDecoder().decode(arrayBuffer);
+                const objModel = objLoader.parse(text);
+                handleModelLoad(objModel, type);
+            } else if (extension === 'fbx') {
+                fbxLoader.parse(arrayBuffer, function(fbx) {
+                    handleModelLoad(fbx, type);
+                });
+            }
         };
         reader.readAsArrayBuffer(file);
     }
+}
+
+function handleModelLoad(model, type) {
+    model.rotation.set(0, 0, 0);
+    model.scale.set(1, 1, 1);
+    centerModel(model);
+
+    if (type === 'sink') {
+        sinkModel = model;
+    } else if (type === 'mirror') {
+        mirrorModel = model;
+    }
+
+    console.log(`Modèle ${type} chargé avec succès`);
 }
 
 function centerModel(model) {
@@ -246,11 +259,7 @@ function checkModelLoaded(type) {
         return false;
     }
     return true;
-
-
 }
-
-
 
 function printScene() {
     // Forcer un rendu de la scène
@@ -349,13 +358,6 @@ function printScene() {
     };
     img.src = imgData;
 }
-
-
-
-
-
-
-
 
 // Event Listeners
 document.getElementById('textureInput').addEventListener('change', handleTextureFiles, false);
